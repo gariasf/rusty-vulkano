@@ -3,7 +3,8 @@ use std::sync::Arc;
 use vulkano::{sync, VulkanLibrary};
 use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, CopyBufferInfo};
-use vulkano::command_buffer::allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo};
+use vulkano::command_buffer::allocator::{StandardCommandBufferAllocator,
+                                         StandardCommandBufferAllocatorCreateInfo};
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::{Device, DeviceCreateInfo, QueueCreateInfo, QueueFlags};
@@ -37,7 +38,8 @@ mod compute_shader {
 
 fn main() {
     let library = VulkanLibrary::new().expect("no local Vulkan library/DLL");
-    let instance = Instance::new(library, InstanceCreateInfo::default()).expect("failed to create instance");
+    let instance = Instance::new(library, InstanceCreateInfo::default())
+        .expect("failed to create instance");
 
     // Getting a device and its memory allocator
     let physical_device = instance
@@ -65,7 +67,8 @@ fn main() {
     ).expect("failed to create device");
 
     let queue = queues.next().unwrap();
-    let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+    let memory_allocator =
+        Arc::new(StandardMemoryAllocator::new_default(device.clone()));
 
     // Create source (CPU) and destination (GPU) buffers
     let source_content: Vec<i32> = (0..64).collect();
@@ -106,23 +109,27 @@ fn main() {
         StandardCommandBufferAllocatorCreateInfo::default(),
     );
 
-    let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-        &command_buffer_allocator,
-        queue_family_index,
-        CommandBufferUsage::OneTimeSubmit,
-    ).unwrap();
+    let mut command_buffer_builder =
+        AutoCommandBufferBuilder::primary(
+            &command_buffer_allocator,
+            queue_family_index,
+            CommandBufferUsage::OneTimeSubmit,
+        ).unwrap();
 
-    command_buffer_builder.copy_buffer(CopyBufferInfo::buffers(source_buffer.clone(), destination_buffer.clone())).unwrap();
+    command_buffer_builder.copy_buffer(CopyBufferInfo::buffers(
+        source_buffer.clone(),
+        destination_buffer.clone(),
+    )).unwrap();
 
     let command_buffer = command_buffer_builder.build().unwrap();
 
-    let comand_future = sync::now(device.clone())
+    let command_future = sync::now(device.clone())
         .then_execute(queue.clone(), command_buffer)
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();
 
-    comand_future.wait(None).unwrap();
+    command_future.wait(None).unwrap();
 
     // Check result
     let src_content = source_buffer.read().unwrap();
@@ -149,7 +156,8 @@ fn main() {
         .expect("failed to create buffer");
 
     // Handle shader pipeline
-    let shader = compute_shader::load(device.clone()).expect("failed to create shader module");
+    let shader = compute_shader::load(device.clone())
+        .expect("failed to create shader module");
 
     let compute_shader = shader.entry_point("main").unwrap();
     let stage = PipelineShaderStageCreateInfo::new(compute_shader);
@@ -166,7 +174,8 @@ fn main() {
         ComputePipelineCreateInfo::stage_layout(stage, layout),
     ).expect("failed to create compute pipeline");
 
-    let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone(), Default::default());
+    let descriptor_set_allocator =
+        StandardDescriptorSetAllocator::new(device.clone(), Default::default());
     let pipeline_layout = compute_pipeline.layout();
     let descriptor_set_layouts = pipeline_layout.set_layouts();
 
