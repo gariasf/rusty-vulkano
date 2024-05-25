@@ -155,7 +155,7 @@ fn main() {
     )
         .expect("failed to create buffer");
 
-    // Handle shader pipeline
+    // Handle compute shader pipeline
     let shader = compute_shader::load(device.clone())
         .expect("failed to create shader module");
 
@@ -202,6 +202,7 @@ fn main() {
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
 
+    // We want to use 1024 work groups in a single dimension (data is single-dimsensional)
     let work_group_counts = [1024, 1, 1];
 
     command_buffer_builder
