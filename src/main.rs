@@ -10,7 +10,7 @@ use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::device::{Device, DeviceCreateInfo, QueueCreateInfo, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator};
-use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineLayout, PipelineShaderStageCreateInfo};
+use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout, PipelineShaderStageCreateInfo};
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::sync::GpuFuture;
@@ -136,7 +136,7 @@ fn main() {
     let destination_content = destination_buffer.read().unwrap();
     assert_eq!(&*src_content, &*destination_content);
 
-    println!("Everything succeeded!");
+    println!("Send copy buffer command succeeded!");
 
     // Buffer using storage
     let data_iter = 0..65536u32;
@@ -189,4 +189,48 @@ fn main() {
         [WriteDescriptorSet::buffer(0, data_buffer.clone())],
         [],
     ).unwrap();
+
+    let command_buffer_allocator = StandardCommandBufferAllocator::new(
+        device.clone(),
+        StandardCommandBufferAllocatorCreateInfo::default(),
+    );
+
+    let mut command_buffer_builder =
+        AutoCommandBufferBuilder::primary(
+            &command_buffer_allocator,
+            queue.queue_family_index(),
+            CommandBufferUsage::OneTimeSubmit,
+        ).unwrap();
+
+    let work_group_counts = [1024, 1, 1];
+
+    command_buffer_builder
+        .bind_pipeline_compute(compute_pipeline.clone())
+        .unwrap()
+        .bind_descriptor_sets(
+            PipelineBindPoint::Compute,
+            compute_pipeline.layout().clone(),
+            descriptor_set_layout_index as u32,
+            descriptor_set,
+        )
+        .unwrap()
+        .dispatch(work_group_counts)
+        .unwrap();
+
+    let command_buffer = command_buffer_builder.build().unwrap();
+
+    let command_buffer_future = sync::now(device.clone())
+        .then_execute(queue.clone(), command_buffer)
+        .unwrap()
+        .then_signal_fence_and_flush()
+        .unwrap();
+
+    command_buffer_future.wait(None).unwrap();
+
+    let content = data_buffer.read().unwrap();
+    for (n, val) in content.iter().enumerate() {
+        assert_eq!(*val, n as u32 * 12);
+    }
+
+    println!("Send compute shader command buffer succeeded!");
 }
