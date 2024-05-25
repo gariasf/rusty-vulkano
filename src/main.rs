@@ -80,10 +80,19 @@ fn main() {
         StandardCommandBufferAllocatorCreateInfo::default(),
     );
 
-    example_cpu_to_gpu_buffer_copy(queue_family_index, &device, &queue, &memory_allocator);
+    example_cpu_to_gpu_buffer_copy(queue_family_index, &device, &queue, &memory_allocator, &command_buffer_allocator);
 
-    example_storage_buffer_compute_shader(&device, &queue, &memory_allocator.clone());
+    example_storage_buffer_compute_shader(&device, &queue, &memory_allocator, &command_buffer_allocator);
 
+    example_image_buffer_clear(device, queue, memory_allocator, &command_buffer_allocator);
+}
+
+fn example_image_buffer_clear(
+    device: Arc<Device>,
+    queue: Arc<Queue>,
+    memory_allocator: Arc<StandardMemoryAllocator>,
+    command_buffer_allocator: &StandardCommandBufferAllocator,
+) {
     let image = Image::new(
         memory_allocator.clone(),
         ImageCreateInfo {
@@ -115,12 +124,12 @@ fn main() {
         },
         // Image size is 1024 x 1024, and each of the four (RGBA) color values for each
         // pixel have 8 bits
-        (0..1024 * 1024 * 4).map(|_| 0u8)
+        (0..1024 * 1024 * 4).map(|_| 0u8),
     ).expect("failed to create buffer");
 
     let mut command_builder =
         AutoCommandBufferBuilder::primary(
-            &command_buffer_allocator,
+            command_buffer_allocator,
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
@@ -160,6 +169,7 @@ fn example_storage_buffer_compute_shader(
     device: &Arc<Device>,
     queue: &Arc<Queue>,
     memory_allocator: &Arc<StandardMemoryAllocator>,
+    command_buffer_allocator: &StandardCommandBufferAllocator
 ) {
 // Buffer using storage
     let data_iter = 0..65536u32;
@@ -213,14 +223,9 @@ fn example_storage_buffer_compute_shader(
         [],
     ).unwrap();
 
-    let command_buffer_allocator = StandardCommandBufferAllocator::new(
-        device.clone(),
-        StandardCommandBufferAllocatorCreateInfo::default(),
-    );
-
     let mut command_buffer_builder =
         AutoCommandBufferBuilder::primary(
-            &command_buffer_allocator,
+            command_buffer_allocator,
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
@@ -264,6 +269,7 @@ fn example_cpu_to_gpu_buffer_copy(
     device: &Arc<Device>,
     queue: &Arc<Queue>,
     memory_allocator: &Arc<StandardMemoryAllocator>,
+    command_buffer_allocator: &StandardCommandBufferAllocator
 ) {
 // Create source (CPU) and destination (GPU) buffers
     let source_content: Vec<i32> = (0..64).collect();
@@ -298,15 +304,9 @@ fn example_cpu_to_gpu_buffer_copy(
     )
         .expect("failed to create destination buffer");
 
-    // Prepare and send copy command
-    let command_buffer_allocator = StandardCommandBufferAllocator::new(
-        device.clone(),
-        StandardCommandBufferAllocatorCreateInfo::default(),
-    );
-
     let mut command_buffer_builder =
         AutoCommandBufferBuilder::primary(
-            &command_buffer_allocator,
+            command_buffer_allocator,
             queue_family_index,
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
