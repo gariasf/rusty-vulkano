@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use image::{ImageBuffer, Rgba};
 use vulkano::{sync, VulkanLibrary};
-use vulkano::buffer::{Buffer, BufferCreateInfo, BufferUsage};
+use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, ClearColorImageInfo, CommandBufferUsage, CopyBufferInfo, CopyImageToBufferInfo};
 use vulkano::command_buffer::allocator::{
     StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo,
@@ -17,6 +17,7 @@ use vulkano::memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, Standar
 use vulkano::pipeline::{ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
                         PipelineShaderStageCreateInfo};
 use vulkano::pipeline::compute::ComputePipelineCreateInfo;
+use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::layout::PipelineDescriptorSetLayoutCreateInfo;
 use vulkano::sync::GpuFuture;
 
@@ -39,6 +40,51 @@ mod compute_shader {
             }
         ",
     }
+}
+
+// Runs for each vertex and allows the GPU to know
+// where the shape is located on the screen.
+mod vertex_shader {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: r"
+            #version 460
+
+            layout(location= 0) in vec2 position;
+
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        "
+    }
+}
+
+// Executed once per each pixel if the pixel is whithin the
+// shape described by the vertices that the vertex shader
+// identified.
+// Remember that color values are normalized, meaning that
+// 1.0 means 255 and 0.0 means 0, therefore this fragment shader
+// paints the shape in RED.
+mod fragment_shader {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: r"
+            #version 460
+
+            layout(location = 0) out vec4 f_color;
+
+            void main() {
+                f_color = vec4(1.0, 0.0, 0.0, 1.0);
+            }
+        "
+    }
+}
+
+#[derive(BufferContents, Vertex)]
+#[repr(C)]
+struct MyVertex {
+    #[format(R32G32_SFLOAT)]
+    position: [f32; 2],
 }
 
 fn main() {
@@ -74,7 +120,7 @@ fn main() {
     let queue = queues.next().unwrap();
     let memory_allocator =
         Arc::new(StandardMemoryAllocator::new_default(device.clone()));
-    // todo!() Pass this to all examples to reduce duplication.
+
     let command_buffer_allocator = StandardCommandBufferAllocator::new(
         device.clone(),
         StandardCommandBufferAllocatorCreateInfo::default(),
@@ -85,6 +131,25 @@ fn main() {
     example_storage_buffer_compute_shader(&device, &queue, &memory_allocator, &command_buffer_allocator);
 
     example_image_buffer_clear(device, queue, memory_allocator, &command_buffer_allocator);
+
+
+    // Triangle vertices
+    let vertex1 = MyVertex { position: [-0.5, -0.5] };
+    let vertex2 = MyVertex { position: [0.0, 0.5] };
+    let vertex3 = MyVertex { position: [0.5, -0.25] };
+
+    let vertex_buffer = Buffer::from_iter(
+        memory_allocator.clone(),
+        BufferCreateInfo {
+            usage: BufferUsage::VERTEX_BUFFER,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
+            ..Default::default()
+        },
+        vec![vertex1, vertex2, vertex3],
+    ).unwrap();
 }
 
 fn example_image_buffer_clear(
