@@ -133,9 +133,19 @@ fn main() {
         StandardCommandBufferAllocatorCreateInfo::default(),
     );
 
+    example_render_pipeline(&device, &queue, &memory_allocator, &command_buffer_allocator);
+
+    example_cpu_to_gpu_buffer_copy(&device, &queue, &memory_allocator, &command_buffer_allocator);
+
+    example_storage_buffer_compute_shader(&device, &queue, &memory_allocator, &command_buffer_allocator);
+
+    example_image_buffer_clear(device, queue, memory_allocator, &command_buffer_allocator);
+}
+
+fn example_render_pipeline(device: &Arc<Device>, queue: &Arc<Queue>, memory_allocator: &Arc<StandardMemoryAllocator>, command_buffer_allocator: &StandardCommandBufferAllocator) {
     let mut command_buffer_builder =
         AutoCommandBufferBuilder::primary(
-            &command_buffer_allocator,
+            command_buffer_allocator,
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
@@ -313,13 +323,6 @@ fn main() {
     image_result.save("render_pipeline.png").unwrap();
 
     println!("Image result from render pipeline succeeded!");
-
-    example_cpu_to_gpu_buffer_copy(&device, &queue, &memory_allocator, &command_buffer_allocator);
-
-    example_storage_buffer_compute_shader(&device, &queue, &memory_allocator, &command_buffer_allocator);
-
-    example_image_buffer_clear(device, queue, memory_allocator, &command_buffer_allocator);
-
 }
 
 fn example_image_buffer_clear(
